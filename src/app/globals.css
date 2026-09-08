@@ -179,6 +179,17 @@ select { background: #fffef8; border: 1px solid #dce1d3; border-radius: 3px; pad
 .study-article .dimensions > div { font-size: 13px; }
 .about-section { border-top: 1px solid var(--line); margin-top: 35px; padding-top: 5px; }
 .about-section a { text-decoration: underline; text-underline-offset: 4px; }
+.graphics-settings { padding: 12px 16px; background: #f4f3eb; border-bottom: 1px solid var(--line); }
+.graphics-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.graphics-controls button { min-height: 44px; padding: 8px 12px; border: 1px solid #c7cdbf; border-radius: 5px; background: var(--surface); font-size: 12px; }
+.graphics-controls button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: white; }
+.graphics-controls label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.graphics-controls select { min-height: 44px; font-size: 12px; }
+.graphics-description { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; color: #52624e; font-size: 11px; line-height: 1.5; }
+.environment-notice { padding: 12px 20px; border-top: 1px solid var(--line); font-size: 11px; color: #52624e; background: #f4f3eb; }
+.scene-top-label { background: #fffef4eb; border-radius: 4px; padding: 6px 8px 26px; }
+.scene-top-label small { top: 24px; left: 14px; }
+.scene-compass, .scene-hint { background: #fffef4e8; padding: 7px; border-radius: 4px; }
 @media (min-width: 1600px) { .scene-stage { height: 655px; } .info-panel { max-height: 740px; } }
 @media (max-width: 1250px) { .header-note { display: none; } .workspace.has-panel { grid-template-columns: 185px minmax(0, 1fr) 305px; } .element-nav { padding-inline: 6px; } .element-nav button { gap: 8px; } .element-nav strong { font-size: 10px; } .scene-top-label { top: 78px; left: 17px; } .scene-tools { left: 15px; right: auto; } .has-panel .scene-hint { display: none; } .has-panel .stage-caption > span:last-child { display: none; } .has-panel .tour-bar { flex-wrap: wrap; } .has-panel .reading-cards { grid-template-columns: 1fr; } .panel-content { padding: 20px; } }
 @media (max-width: 1050px) { .workspace, .workspace.has-panel { grid-template-columns: 205px minmax(0, 1fr); } .info-panel { grid-column: 1 / -1; max-height: none; border-left: 0; border-top: 1px solid var(--line); } .panel-illustration { display: none; } .panel-title { padding-bottom: 18px; } .panel-tabs { max-width: 600px; } .panel-content { max-height: 450px; padding: 22px; } .panel-content > p { max-width: 800px; } .panel-content .dimensions { max-width: 500px; } .scene-stage { height: 560px; } .element-nav button { min-height: 54px; } .nav-footnote { padding-block: 14px; } .learning-notes { gap: 20px; } .has-panel .reading-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

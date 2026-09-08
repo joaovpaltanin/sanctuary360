@@ -99,6 +99,11 @@ As versões diretas estão fixadas em package.json e a árvore está em package-
 - Avalie compressão e níveis de detalhe quando houver modelos externos; não adicione complexidade prematuramente.
 - O modelo compartilha materiais e geometrias em nível de módulo e usa dispose={null}. Não descarte um recurso compartilhado enquanto outra instância ainda o utiliza.
 - A cena usa frameloop="demand" e limita o DPR a 1,5. A câmera invalida frames durante transições, sem setState no loop.
+- `SceneMotion.tsx` mantém um relógio por instância para todos os efeitos ambientais. Solicita frames em até 30 Hz somente com animações habilitadas, aba visível e canvas na tela. Câmera/interação podem solicitar frames adicionais. Preserve pausa manual, movimento reduzido e desmontagem no modo leitura.
+- `DesertEnvironment.tsx` e `environment-layout.ts` separam renderização de céu/terreno/vegetação/aves e posições determinísticas. O pátio e sua margem ficam planos. `surface-textures.ts` mantém cinco DataTextures procedurais compartilhadas de 128×128; não modifique nem descarte esses recursos nos consumidores.
+- Texturas e animações são controles independentes, locais ao Explorer. Sem texturas, preserve materiais lisos e destaque de seleção. Qualidade manual: Econômica (DPR 1, sem sombras/aves), Equilibrada (1,25; sombras 1024) e Detalhada (1,5; sombras 2048). Preferências sobrevivem à troca de modo, não ao reload.
+- A vista HORIZON permite observar céu e sol; seu botão encerra tour/seleção. A seleção de elementos continua priorizando model-layout. Luz e disco solar usam SUN_POSITION; mantenha coerência. O vento nos tecidos é um balanço rígido discreto em torno da suspensão superior, não simulação física. Paisagem e efeitos continuam explicitamente ilustrativos.
+- `RendererMonitor` instala o listener de perda de contexto em layout effect e alinha o viewport ao tamanho inteiro do drawing buffer antes de renderizar. Isso evita divergência de um pixel ao restaurar layouts com larguras CSS fracionárias; preserve o teste de viewport e comparação de pixels.
 - A criação do renderizador pode falhar de forma assíncrona. Preserve a verificação prévia de WebGL2, o tratamento de perda de contexto e seus testes; um ErrorBoundary isolado não cobre a falha inicial de contexto observada.
 
 ## Ambiente e comandos
@@ -129,6 +134,8 @@ O README descreve a alternativa com npm 11.10.1. A coerência do lockfile també
 ## Verificação
 
 Na implementação inicial passaram 96 testes unitários, 7 testes de navegador, lint, tipos e build. Os testes incluem limites de câmera em telas estreitas, visibilidade do véu e recuperação do foco após falhas gráficas. Auditoria de produção não reportou vulnerabilidades na execução. Esses resultados não substituem novas verificações após alterações.
+
+Após as melhorias ambientais, passaram 131 testes unitários, 12 testes de navegador, lint, tipos e build de produção. Os novos testes medem chamadas reais de desenho WebGL em pausa/movimento reduzido/fora da tela, simulam a visibilidade oculta do documento, comparam pixels ao alternar texturas e verificam retorno do horizonte nas três qualidades. A comparação ignora variação de um nível por canal e tolera até quatro pixels residuais na restauração de materiais; não substitui revisão visual humana. O aviso de depreciação de THREE.Clock da integração existente permanece.
 
 1. Inspecione scripts e configuração antes de executar comandos.
 2. Atualize aqui e no README os comandos reais quando houver mudança.

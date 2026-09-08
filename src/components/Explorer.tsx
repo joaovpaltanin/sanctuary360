@@ -9,6 +9,7 @@ import { createExplorationStore } from "../lib/exploration-store";
 import { Icon } from "./Icon";
 import { InfoPanel } from "./InfoPanel";
 import { SceneErrorBoundary } from "./scene/SceneErrorBoundary";
+import { useReducedMotion, type GraphicQuality } from "../lib/scene-preferences";
 
 const SanctuaryScene = dynamic(() => import("./scene/SanctuaryScene"), {
   ssr: false,
@@ -23,6 +24,11 @@ export function Explorer() {
   const [store] = useState(createExplorationStore);
   const state = useStore(store);
   const [unavailable, setUnavailable] = useState(false);
+  const [texturesEnabled, setTexturesEnabled] = useState(true);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+  const [quality, setQuality] = useState<GraphicQuality>("medium");
+  const [horizonView, setHorizonView] = useState(false);
+  const reducedMotion = useReducedMotion();
   const selected = state.selectedId ? getElement(state.selectedId) : null;
   const inTour = state.tourIndex !== null;
   const lastStep = state.tourIndex === tourSteps.length - 1;
@@ -34,6 +40,7 @@ export function Explorer() {
 
   function closePanel() {
     const id = state.selectedId;
+    setHorizonView(false);
     state.resetOverview();
     if (id) document.querySelector<HTMLButtonElement>(`[data-element-id="${id}"]`)?.focus();
   }
@@ -76,14 +83,32 @@ export function Explorer() {
           <div className="nav-footnote"><Icon name="book" size={18} /><p>Do texto bíblico<br />à compreensão do espaço.</p></div>
         </nav>
         <div className="stage-column">
+          {state.view === "3d" && <div className="graphics-settings" role="group" aria-label="Aparência do ambiente">
+            <div className="graphics-controls">
+              <button onClick={() => { setHorizonView(true); state.resetOverview(); }}>Ver horizonte</button>
+              <button aria-pressed={texturesEnabled} onClick={() => setTexturesEnabled((value) => !value)} aria-describedby="surface-mode">Texturas</button>
+              <button aria-pressed={animationsEnabled && !reducedMotion} disabled={reducedMotion} onClick={() => setAnimationsEnabled((value) => !value)} aria-describedby="motion-mode">Animações do ambiente</button>
+              <label>Qualidade gráfica<select value={quality} onChange={(event) => setQuality(event.target.value as GraphicQuality)}>
+                <option value="low">Econômica</option><option value="medium">Equilibrada</option><option value="high">Detalhada</option>
+              </select></label>
+            </div>
+            <div className="graphics-description">
+              <span id="surface-mode">{texturesEnabled ? "Materiais com texturas" : "Cores lisas · sem texturas"}</span>
+              <span id="motion-mode">{reducedMotion ? "Movimento reduzido: ambiente estático." : animationsEnabled ? "Animações ativas quando a cena está visível." : "Animações pausadas."}</span>
+            </div>
+          </div>}
           {state.view === "3d" ? <div className="scene-stage" data-testid="scene-stage">
-            <div className="scene-top-label"><span className="status-dot" />{selected ? selected.zone.toUpperCase() : "VISTA GERAL"}<small>Reconstrução esquemática</small></div>
+            <div className="scene-top-label"><span className="status-dot" />{selected ? selected.zone.toUpperCase() : horizonView ? "HORIZONTE" : "VISTA GERAL"}<small>Reconstrução ilustrativa</small></div>
             <SceneErrorBoundary onUnavailable={onUnavailable}>
               <SanctuaryScene
                 selectedId={state.selectedId}
                 roofVisible={state.roofVisible}
                 wallsVisible={state.wallsVisible}
                 cameraVersion={state.cameraVersion}
+                texturesEnabled={texturesEnabled}
+                animationsEnabled={animationsEnabled}
+                quality={quality}
+                horizonView={horizonView}
                 onSelect={select}
                 onUnavailable={onUnavailable}
               />
@@ -122,6 +147,7 @@ export function Explorer() {
         {selected && <InfoPanel key={selected.id} element={selected} onClose={closePanel} />}
       </div>
       <div className="workspace-footer"><span><span className="status-dot" />Perspectiva adventista do sétimo dia</span><span>Representação didática · não é uma reprodução histórica comprovada</span></div>
+      <p className="environment-notice">Paisagem, vegetação, aves, texturas e efeitos de fogo e fumaça são ilustrativos, não uma reconstituição de local, espécies ou ritual específicos. A luz solar não representa a presença divina.</p>
     </section>
     <div className="sr-only" role="status" aria-live="polite">{inTour ? `Etapa ${(state.tourIndex ?? 0) + 1} de ${tourSteps.length}: ${selected?.name}` : selected ? `Explorando ${selected.name}` : "Exploração livre"}</div>
     <noscript><div className="editorial-banner">A exploração interativa requer JavaScript. <a href="/estudo">Leia todo o conteúdo no guia de estudo, sem JavaScript ou 3D.</a></div></noscript>

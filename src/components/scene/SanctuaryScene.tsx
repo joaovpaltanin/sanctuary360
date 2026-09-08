@@ -1,41 +1,43 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ComponentRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import { Vector3 } from "three";
 import { elements, type ElementId } from "../../content/sanctuary";
-import { fitCameraPosition, isHotspotVisible, MAX_CAMERA_DISTANCE, modelLayout, OVERVIEW } from "../../lib/model-layout";
+import { fitCameraPosition, HORIZON, isHotspotVisible, MAX_CAMERA_DISTANCE, modelLayout, OVERVIEW } from "../../lib/model-layout";
 import SanctuaryModel from "./SanctuaryModel";
 import { SceneErrorBoundary, SceneFallback } from "./SceneErrorBoundary";
+import { DesertEnvironment } from "./DesertEnvironment";
+import { SceneMotion } from "./SceneMotion";
+import { QUALITY_DPR, useReducedMotion, type GraphicQuality } from "../../lib/scene-preferences";
 
 interface SceneProps {
   selectedId: ElementId | null;
   roofVisible: boolean;
   wallsVisible: boolean;
   cameraVersion: number;
+  texturesEnabled: boolean;
+  animationsEnabled: boolean;
+  quality: GraphicQuality;
+  horizonView: boolean;
   onSelect: (id: ElementId) => void;
   onUnavailable: () => void;
 }
 
-function subscribeMotion(callback: () => void) {
-  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-  query.addEventListener("change", callback);
-  return () => query.removeEventListener("change", callback);
-}
-
-function CameraController({ selectedId, cameraVersion }: Pick<SceneProps, "selectedId" | "cameraVersion">) {
+function CameraController({ selectedId, cameraVersion, horizonView }: Pick<SceneProps, "selectedId" | "cameraVersion" | "horizonView">) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const { camera, invalidate, size } = useThree();
   const destination = useRef(new Vector3());
   const lookAt = useRef(new Vector3());
   const moving = useRef(false);
-  const reducedMotion = useSyncExternalStore(subscribeMotion, () => window.matchMedia("(prefers-reduced-motion: reduce)").matches, () => true);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const frame = selectedId ? modelLayout[selectedId] : null;
-    const target = frame?.target ?? OVERVIEW.target;
-    const position = frame?.camera ?? OVERVIEW.position;
+    const overview = horizonView ? HORIZON : OVERVIEW;
+    const target = frame?.target ?? overview.target;
+    const position = frame?.camera ?? overview.position;
     lookAt.current.set(...target);
     destination.current.set(...fitCameraPosition(position, target, size.width / Math.max(size.height, 1)));
     if (reducedMotion && controls.current) {
@@ -47,7 +49,7 @@ function CameraController({ selectedId, cameraVersion }: Pick<SceneProps, "selec
       moving.current = true;
     }
     invalidate();
-  }, [selectedId, cameraVersion, reducedMotion, camera, invalidate, size.width, size.height]);
+  }, [selectedId, cameraVersion, horizonView, reducedMotion, camera, invalidate, size.width, size.height]);
 
   useFrame((_, delta) => {
     if (!moving.current || !controls.current) return;
@@ -66,9 +68,13 @@ function CameraController({ selectedId, cameraVersion }: Pick<SceneProps, "selec
   return <OrbitControls ref={controls} makeDefault enableDamping={!reducedMotion} dampingFactor={0.1} minDistance={5} maxDistance={MAX_CAMERA_DISTANCE} maxPolarAngle={Math.PI / 2.08} minPolarAngle={0.12} onStart={() => { moving.current = false; }} />;
 }
 
-function ContextMonitor({ onUnavailable }: Pick<SceneProps, "onUnavailable">) {
+function RendererMonitor({ onUnavailable }: Pick<SceneProps, "onUnavailable">) {
   const gl = useThree((state) => state.gl);
-  useEffect(() => {
+  useFrame(() => {
+    const dpr = gl.getPixelRatio();
+    gl.setViewport(0, 0, gl.domElement.width / dpr, gl.domElement.height / dpr);
+  }, -2);
+  useLayoutEffect(() => {
     const canvas = gl.domElement;
     const lost = (event: Event) => { event.preventDefault(); onUnavailable(); };
     canvas.addEventListener("webglcontextlost", lost);
@@ -94,32 +100,24 @@ function supportsWebGL() {
 
 export default function SanctuaryScene(props: SceneProps) {
   const [supported] = useState(supportsWebGL);
+  const reducedMotion = useReducedMotion();
+  const animate = props.animationsEnabled && !reducedMotion;
   if (!supported) return <SceneFallback onUnavailable={props.onUnavailable} />;
 
   return <SceneErrorBoundary onUnavailable={props.onUnavailable}>
     <Canvas
-      shadows
+      shadows={props.quality === "low" ? false : "percentage"}
       frameloop="demand"
-      dpr={[1, 1.5]}
+      dpr={[1, QUALITY_DPR[props.quality]]}
       camera={{ position: OVERVIEW.position, fov: 40, near: 0.1, far: 1000 }}
       gl={{ antialias: true, powerPreference: "low-power" }}
       fallback={<SceneFallback onUnavailable={props.onUnavailable} />}
       onCreated={({ gl }) => { gl.domElement.setAttribute("aria-label", "Reconstrução 3D do Tabernáculo. Use a lista de elementos para navegação por teclado."); }}
     >
-      <color attach="background" args={["#e9e4d9"]} />
-      <ambientLight intensity={1.45} />
-      <hemisphereLight args={["#fff5df", "#9b8b70", 1.4]} />
-      <directionalLight position={[40, 70, 35]} intensity={3.2} castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-70} shadow-camera-right={70} shadow-camera-top={70} shadow-camera-bottom={-70} shadow-camera-far={180} shadow-normalBias={0.15} />
-      <directionalLight position={[-30, 20, -30]} intensity={1.2} />
-      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.3, 0]}>
-        <planeGeometry args={[1200, 1200]} />
-        <meshStandardMaterial color="#e9e4d9" roughness={1} />
-      </mesh>
-      <mesh receiveShadow position={[0, -0.32, 0]}>
-        <boxGeometry args={[57, 0.2, 107]} />
-        <meshStandardMaterial color="#d2c5ae" roughness={1} />
-      </mesh>
-      <SanctuaryModel {...props} />
+      <SceneMotion enabled={animate}>
+        <DesertEnvironment texturesEnabled={props.texturesEnabled} quality={props.quality} birdsEnabled={!reducedMotion} />
+        <SanctuaryModel {...props} />
+      </SceneMotion>
       {elements.map((element) => {
         if (!isHotspotVisible(element.id, props.selectedId, props.roofVisible, props.wallsVisible)) return null;
         return <Html key={element.id} position={modelLayout[element.id].position} center zIndexRange={[15, 0]}>
@@ -134,8 +132,8 @@ export default function SanctuaryScene(props: SceneProps) {
           </button>
         </Html>;
       })}
-      <CameraController selectedId={props.selectedId} cameraVersion={props.cameraVersion} />
-      <ContextMonitor onUnavailable={props.onUnavailable} />
+      <CameraController selectedId={props.selectedId} cameraVersion={props.cameraVersion} horizonView={props.horizonView} />
+      <RendererMonitor onUnavailable={props.onUnavailable} />
     </Canvas>
   </SceneErrorBoundary>;
 }

@@ -1,13 +1,14 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import type { ThreeEvent } from '@react-three/fiber';
+import { createContext, useContext, useRef, type ReactNode } from 'react';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import {
   BoxGeometry,
   BufferGeometry,
   CatmullRomCurve3,
   CylinderGeometry,
   DoubleSide,
+  Group,
   MeshStandardMaterial,
   SphereGeometry,
   TorusGeometry,
@@ -16,11 +17,15 @@ import {
 } from 'three';
 import type { ElementId } from '../../content/sanctuary';
 import type { Point3 } from '../../lib/model-layout';
+import { getSurfaceTexture, type SurfaceTextureKind } from '../../lib/surface-textures';
+import ModelEffects from './ModelEffects';
+import { useSceneTime } from './SceneMotion';
 
 export type SanctuaryModelProps = {
   selectedId: ElementId | null;
   roofVisible: boolean;
   wallsVisible: boolean;
+  texturesEnabled: boolean;
   onSelect: (id: ElementId) => void;
 };
 
@@ -58,6 +63,21 @@ const colors = {
 } as const;
 
 type Finish = keyof typeof colors;
+const TextureMode = createContext(false);
+const surfaces: Partial<Record<Finish, SurfaceTextureKind>> = {
+  linen: 'linen',
+  blue: 'linen',
+  purple: 'linen',
+  scarlet: 'linen',
+  gold: 'metal',
+  brightGold: 'metal',
+  bronze: 'metal',
+  darkBronze: 'metal',
+  silver: 'metal',
+  wood: 'wood',
+  leather: 'leather',
+  floor: 'sand',
+};
 const materials = Object.fromEntries(
   Object.entries(colors).map(([name, color]) => {
     const metallic = ['gold', 'brightGold', 'bronze', 'darkBronze', 'silver'].includes(name);
@@ -70,9 +90,19 @@ const materials = Object.fromEntries(
     const selected = base.clone();
     selected.emissive.set('#e5ac52');
     selected.emissiveIntensity = 0.22;
-    return [name, { base, selected }];
+    const surface = surfaces[name as Finish];
+    const textured = base.clone();
+    textured.map = surface ? getSurfaceTexture(surface) : null;
+    const texturedSelected = selected.clone();
+    texturedSelected.map = textured.map;
+    return [name, { base, selected, textured, texturedSelected }];
   }),
-) as Record<Finish, { base: MeshStandardMaterial; selected: MeshStandardMaterial }>;
+) as Record<Finish, {
+  base: MeshStandardMaterial;
+  selected: MeshStandardMaterial;
+  textured: MeshStandardMaterial;
+  texturedSelected: MeshStandardMaterial;
+}>;
 
 const arms = [-1, 1].flatMap((side) =>
   [1, 2, 3].map((level) => {
@@ -93,6 +123,39 @@ const arms = [-1, 1].flatMap((side) =>
   }),
 );
 
+function WindCloth({ position, scale, rotation, material, shadow }: {
+  position: Point3;
+  scale: Point3;
+  rotation: Point3;
+  material: MeshStandardMaterial;
+  shadow: boolean;
+}) {
+  const pivot = useRef<Group>(null);
+  const time = useSceneTime();
+  const phase = position[0] * 0.23 + position[2] * 0.11 + scale[0] * 0.07;
+
+  useFrame(() => {
+    if (!pivot.current) return;
+    const elapsed = time.current;
+    pivot.current.rotation.x = 0.012 * Math.sin(elapsed * 0.7) * (0.8 + 0.2 * Math.sin(elapsed * 0.23 + phase));
+  });
+
+  return (
+    <group name="wind-cloth" position={position} rotation={rotation}>
+      <group ref={pivot} position={[0, scale[1] / 2, 0]}>
+        <mesh
+          geometry={cloth}
+          material={material}
+          position={[0, -scale[1] / 2, 0]}
+          scale={scale}
+          castShadow={shadow}
+          receiveShadow
+        />
+      </group>
+    </group>
+  );
+}
+
 function Part({
   geometry = box,
   position = [0, 0, 0],
@@ -110,10 +173,15 @@ function Part({
   selected?: boolean;
   shadow?: boolean;
 }) {
+  const textured = useContext(TextureMode);
+  const variant = textured ? (selected ? 'texturedSelected' : 'textured') : (selected ? 'selected' : 'base');
+  if (geometry === cloth) {
+    return <WindCloth position={position} scale={scale} rotation={rotation} material={materials[finish][variant]} shadow={shadow} />;
+  }
   return (
     <mesh
       geometry={geometry}
-      material={materials[finish][selected ? 'selected' : 'base']}
+      material={materials[finish][variant]}
       position={position}
       scale={scale}
       rotation={rotation}
@@ -382,29 +450,32 @@ function Ark({ selected }: { selected: boolean }) {
 }
 
 export default function SanctuaryModel(props: SanctuaryModelProps) {
-  const { selectedId, onSelect } = props;
+  const { selectedId, onSelect, texturesEnabled } = props;
   return (
-    <group name="sanctuary-model" dispose={null}>
-      <Courtyard selectedId={selectedId} onSelect={onSelect} />
-      <Tent {...props} />
-      <Selectable id="altar" position={[0, 0, 25]} onSelect={onSelect}>
-        <Altar selected={selectedId === 'altar'} />
-      </Selectable>
-      <Selectable id="basin" position={[0, 0, 8]} onSelect={onSelect}>
-        <Basin selected={selectedId === 'basin'} />
-      </Selectable>
-      <Selectable id="table" position={[3, 0, -16]} onSelect={onSelect}>
-        <Table selected={selectedId === 'table'} />
-      </Selectable>
-      <Selectable id="lampstand" position={[-3, 0, -16]} onSelect={onSelect}>
-        <Lampstand selected={selectedId === 'lampstand'} />
-      </Selectable>
-      <Selectable id="incense" position={[0, 0, -23]} onSelect={onSelect}>
-        <Incense selected={selectedId === 'incense'} />
-      </Selectable>
-      <Selectable id="ark" position={[0, 0, -30]} onSelect={onSelect}>
-        <Ark selected={selectedId === 'ark'} />
-      </Selectable>
-    </group>
+    <TextureMode.Provider value={texturesEnabled}>
+      <group name="sanctuary-model" dispose={null}>
+        <Courtyard selectedId={selectedId} onSelect={onSelect} />
+        <Tent {...props} />
+        <Selectable id="altar" position={[0, 0, 25]} onSelect={onSelect}>
+          <Altar selected={selectedId === 'altar'} />
+        </Selectable>
+        <Selectable id="basin" position={[0, 0, 8]} onSelect={onSelect}>
+          <Basin selected={selectedId === 'basin'} />
+        </Selectable>
+        <Selectable id="table" position={[3, 0, -16]} onSelect={onSelect}>
+          <Table selected={selectedId === 'table'} />
+        </Selectable>
+        <Selectable id="lampstand" position={[-3, 0, -16]} onSelect={onSelect}>
+          <Lampstand selected={selectedId === 'lampstand'} />
+        </Selectable>
+        <Selectable id="incense" position={[0, 0, -23]} onSelect={onSelect}>
+          <Incense selected={selectedId === 'incense'} />
+        </Selectable>
+        <Selectable id="ark" position={[0, 0, -30]} onSelect={onSelect}>
+          <Ark selected={selectedId === 'ark'} />
+        </Selectable>
+      </group>
+      <ModelEffects />
+    </TextureMode.Provider>
   );
 }

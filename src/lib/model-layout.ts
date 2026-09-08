@@ -8,6 +8,11 @@ export const OVERVIEW: { position: Point3; target: Point3 } = {
   target: [0, 0, 0],
 };
 
+export const HORIZON: { position: Point3; target: Point3 } = {
+  position: [80, 30, 112],
+  target: [0, 18, 0],
+};
+
 export const modelLayout: Record<
   ElementId,
   { position: Point3; camera: Point3; target: Point3; interior: boolean }

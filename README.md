@@ -10,6 +10,17 @@ Explore o Tabernáculo do deserto em 3D. MVP open-source em Next.js, Three.js e 
 - `/estudo` — Guia textual completo, acessível sem JavaScript.
 - `/sobre` — Fontes, critérios e limites editoriais.
 
+## Aparência do ambiente 3D
+
+- **Texturas:** liga/desliga as texturas procedurais do Tabernáculo e do terreno. Desligue para estudar com cores lisas, sem alterar seleção, medidas, camadas ou tour.
+- **Ver horizonte:** enquadra o céu e o sol; encerra o tour e limpa a seleção. O botão de voltar à vista geral restaura o enquadramento didático elevado.
+- **Animações do ambiente:** pausa ou retoma nuvens, aves, balanço dos tecidos e vegetação, chamas, fumaça e ondulações da água. Com movimento reduzido do sistema, os efeitos ficam estáticos e as aves são ocultadas.
+- **Qualidade gráfica:** Econômica (DPR 1, sem sombras nem aves), Equilibrada (DPR até 1,25, sombras 1024) e Detalhada (DPR até 1,5, sombras 2048), com quantidades limitadas de detalhes. A escolha é manual; não há detecção de potência do aparelho.
+
+As preferências são mantidas ao alternar entre 3D e leitura durante a visita, mas não após recarregar a página. As animações solicitam frames em até 30 Hz e são suspensas quando a cena sai da tela ou a aba fica oculta; câmera e interação podem solicitar frames adicionais. No modo leitura, a cena é desmontada.
+
+Céu, dunas, vegetação, aves e efeitos são ambientação ilustrativa, não uma reconstrução comprovada de local, espécies ou ritual. As texturas são geradas em código, sem downloads de imagens. O vento usa balanço discreto dos painéis de tecido, não simulação física de pano. A iluminação solar tem horário fixo; não há ciclo de dia/noite nem áudio. Desempenho em dispositivos físicos e revisão visual humana permanecem pendentes.
+
 ## Stack
 
 - **Framework:** Next.js 16 + React 19 + TypeScript 5
